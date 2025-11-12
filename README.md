@@ -1,0 +1,2 @@
+# henHotkey
+Simple hotkey settings.
