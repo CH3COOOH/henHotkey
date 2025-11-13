@@ -6,9 +6,9 @@ import sys
 import json
 import multiprocessing
 
-MODIFIERS = ('ctrl', 'alt', 'shift', 'win')
-SELF_TEST_HK = 'f23+f24'
-SELF_TEST_TIMEOUT = 13
+# MODIFIERS = ('ctrl', 'alt', 'shift', 'win')
+# SELF_TEST_HK = 'f23+f24'
+SELF_TEST_TIMEOUT = 10
 CHECK_INTERVAL = 10
 
 class HotkeyController:
@@ -25,47 +25,75 @@ class HotkeyController:
 		self.last_self_test_ok_ts = time.time()
 		print(f"[{self.id}]_self_test_cb(): t={self.last_self_test_ok_ts}")
 
-	def _alive_probe(self):
-		try:
-			keyboard.press_and_release(SELF_TEST_HK)
-			# keyboard.send(SELF_TEST_HK)
-			self.release_modifiers()
-			print(f"[{self.id}]_alive_probe(): Press {SELF_TEST_HK}")
-		except Exception:
-			print(f"[{self.id}]_alive_probe(): X")
-			pass
+	# def _alive_probe(self):
+	# 	try:
+	# 		keyboard.press_and_release(SELF_TEST_HK)
+	# 		# keyboard.send(SELF_TEST_HK)
+	# 		self.release_modifiers()
+	# 		print(f"[{self.id}]_alive_probe(): Press {SELF_TEST_HK}")
+	# 	except Exception:
+	# 		print(f"[{self.id}]_alive_probe(): X")
+	# 		pass
+
+	def _hotkey_split(self, hk):
+		return set(hk.split('+'))
 
 	def watchdog_loop(self):
 		while True:
 			now = time.time()
-			multiprocessing.Process(target=self._alive_probe, daemon=True).start()
+			# multiprocessing.Process(target=self._alive_probe, daemon=True).start()
 			if now - self.last_self_test_ok_ts > SELF_TEST_TIMEOUT:
-				print(f"[{self.id}]watchdog_loop(): Hook dead. Restarting daemon...")
+				print(f"[{self.id}]watchdog_loop(): Hook timeout. Restarting daemon...")
 				self.clear_hotkeys()
 				break
 			time.sleep(CHECK_INTERVAL)
 
-	def release_modifiers(self):
-		for mod in MODIFIERS:
-			try: keyboard.release(mod)
+	# def release_modifiers(self):
+	# 	for mod in MODIFIERS:
+	# 		try: keyboard.release(mod)
+	# 		except: pass
+
+	def release_keys(self, keys):
+		for k in keys:
+			try: keyboard.release(k)
 			except: pass
 
-	def paste_text(self, text: str, use_shift_insert=False):
-		self.release_modifiers()
-		print(f"[{self.id}]paste_text(): " + text[0] + '***')
+	def block_keys(self, keys):
+		for k in keys:
+			try: keyboard.block_key(k)
+			except: pass
+
+	def unblock_keys(self, keys):
+		for k in keys:
+			try: keyboard.unblock_key(k)
+			except: pass
+
+	def paste_text(self, hk, text: str, use_shift_insert=False):
+		key_grp = self._hotkey_split(hk)
+		self.block_keys(key_grp)
+		self.release_keys(key_grp)
+		self._self_test_callback()
+		# self.release_modifiers()
+		print(f"[{self.id}]paste_text(): {hk} -> {text[0]}***")
 		pyperclip.copy(text)
-		time.sleep(0.05)
+		time.sleep(0.1)
 		if use_shift_insert:
 			keyboard.press_and_release('shift+insert')
+			key_grp.add('shift')
+			key_grp.add('insert')
 		else:
 			keyboard.press_and_release('ctrl+v')
-		time.sleep(0.05)
-		self.release_modifiers()
+			key_grp.add('ctrl')
+			key_grp.add('v')
+		time.sleep(0.1)
+		self.release_keys(key_grp)
+		self.unblock_keys(key_grp)
+		# self.release_modifiers()
 
 	def register_hotkeys(self):
 		for hk, txt in self.templates.items():
-			keyboard.add_hotkey(hk, lambda t=txt: self.paste_text(t), suppress=False)
-		keyboard.add_hotkey(SELF_TEST_HK, self._self_test_callback, suppress=False)
+			keyboard.add_hotkey(hk, lambda t=txt, h=hk: self.paste_text(h, t), suppress=False)
+		# keyboard.add_hotkey(SELF_TEST_HK, self._self_test_callback, suppress=False)
 		self.last_self_test_ok_ts = time.time()
 	
 	def load_templates(self, fname):
