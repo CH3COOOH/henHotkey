@@ -6,8 +6,7 @@ import sys
 import json
 import multiprocessing
 
-# MODIFIERS = ('ctrl', 'alt', 'shift', 'win')
-# SELF_TEST_HK = 'f23+f24'
+MODIFIERS = set(['ctrl', 'alt', 'shift', 'win'])
 SELF_TEST_TIMEOUT = 10
 CHECK_INTERVAL = 10
 
@@ -25,33 +24,17 @@ class HotkeyController:
 		self.last_self_test_ok_ts = time.time()
 		print(f"[{self.id}]_self_test_cb(): t={self.last_self_test_ok_ts}")
 
-	# def _alive_probe(self):
-	# 	try:
-	# 		keyboard.press_and_release(SELF_TEST_HK)
-	# 		# keyboard.send(SELF_TEST_HK)
-	# 		self.release_modifiers()
-	# 		print(f"[{self.id}]_alive_probe(): Press {SELF_TEST_HK}")
-	# 	except Exception:
-	# 		print(f"[{self.id}]_alive_probe(): X")
-	# 		pass
-
 	def _hotkey_split(self, hk):
 		return set(hk.split('+'))
 
 	def watchdog_loop(self):
 		while True:
 			now = time.time()
-			# multiprocessing.Process(target=self._alive_probe, daemon=True).start()
 			if now - self.last_self_test_ok_ts > SELF_TEST_TIMEOUT:
 				print(f"[{self.id}]watchdog_loop(): Hook timeout. Restarting daemon...")
 				self.clear_hotkeys()
 				break
 			time.sleep(CHECK_INTERVAL)
-
-	# def release_modifiers(self):
-	# 	for mod in MODIFIERS:
-	# 		try: keyboard.release(mod)
-	# 		except: pass
 
 	def release_keys(self, keys):
 		for k in keys:
@@ -69,31 +52,28 @@ class HotkeyController:
 			except: pass
 
 	def paste_text(self, hk, text: str, use_shift_insert=False):
-		key_grp = self._hotkey_split(hk)
-		self.block_keys(key_grp)
-		self.release_keys(key_grp)
+		in_keys = self._hotkey_split(hk)
+		in_keys_xmod = in_keys - MODIFIERS
+		ope_keys = None
+		self.block_keys(in_keys_xmod)
+		self.release_keys(in_keys)
 		self._self_test_callback()
-		# self.release_modifiers()
 		print(f"[{self.id}]paste_text(): {hk} -> {text[0]}***")
 		pyperclip.copy(text)
-		time.sleep(0.1)
+		time.sleep(0.1)  # <- Wait for copying to clipboard
 		if use_shift_insert:
 			keyboard.press_and_release('shift+insert')
-			key_grp.add('shift')
-			key_grp.add('insert')
+			ope_keys = set(['shift', 'insert'])
 		else:
 			keyboard.press_and_release('ctrl+v')
-			key_grp.add('ctrl')
-			key_grp.add('v')
-		time.sleep(0.1)
-		self.release_keys(key_grp)
-		self.unblock_keys(key_grp)
-		# self.release_modifiers()
+			ope_keys = set(['ctrl', 'v'])
+		time.sleep(0.05)  # <- Wait for recognizing hotkey
+		self.release_keys(ope_keys)
+		self.unblock_keys(in_keys_xmod)
 
 	def register_hotkeys(self):
 		for hk, txt in self.templates.items():
 			keyboard.add_hotkey(hk, lambda t=txt, h=hk: self.paste_text(h, t), suppress=False)
-		# keyboard.add_hotkey(SELF_TEST_HK, self._self_test_callback, suppress=False)
 		self.last_self_test_ok_ts = time.time()
 	
 	def load_templates(self, fname):
