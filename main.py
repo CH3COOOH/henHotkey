@@ -5,6 +5,7 @@ import time
 import sys
 import json
 import multiprocessing
+import subprocess
 
 MODIFIERS = set(['ctrl', 'alt', 'shift', 'win'])
 SELF_TEST_TIMEOUT = 10
@@ -70,10 +71,30 @@ class HotkeyController:
 		time.sleep(0.05)  # <- Wait for recognizing hotkey
 		self.release_keys(ope_keys)
 		self.unblock_keys(in_keys_xmod)
+	
+	def run_text(self, hk, text: str):
+		in_keys = self._hotkey_split(hk)
+		in_keys_xmod = in_keys - MODIFIERS
+		ope_keys = None
+		self.block_keys(in_keys_xmod)
+		self.release_keys(in_keys)
+		self._self_test_callback()
+		print(f"[{self.id}]run_text(): {hk} -> \"{text}\"")
+		subprocess.Popen([text], shell=True)
+		time.sleep(0.5)
+		self.unblock_keys(in_keys_xmod)
+	
+	def input_handler(self, hk, text: str):
+		if text.startswith('str::'):
+			self.paste_text(hk, text[5:])
+		elif text.startswith('run::'):
+			self.run_text(hk, text[5:])
+		else:
+			self.paste_text(hk, text)
 
 	def register_hotkeys(self):
 		for hk, txt in self.templates.items():
-			keyboard.add_hotkey(hk, lambda t=txt, h=hk: self.paste_text(h, t), suppress=False)
+			keyboard.add_hotkey(hk, lambda t=txt, h=hk: self.input_handler(h, t), suppress=False)
 		self.last_self_test_ok_ts = time.time()
 	
 	def load_templates(self, fname):
