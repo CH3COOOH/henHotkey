@@ -1,14 +1,14 @@
 # henHotkey
 
 A simple hotkey manager written in Python.  
-This tool lets you define custom keyboard shortcuts in a JSON file to either run commands or paste strings.
+This tool lets you define custom keyboard shortcuts in a JSON file to either paste strings or run commands.
 
 ---
 
 ## Features
 - **Lightweight and easy to use**: define hotkeys with a simple JSON configuration.  
 - **No installation required**: just clone the repo and run with Python.  
-- **Supports both string paste and command execution** 
+- **Supports both string paste and command execution**. 
 - **Configuration file included**: see `template.json` for reference.
 
 ---
@@ -33,10 +33,10 @@ pip install -r requirements.txt
 Run the program with a configuration file:
 
 ```bash
-python main.py <template.json>
+python main.py template.json
 ```
 
-Replace `<template.json>` with your own configuration file.  
+Replace `template.json` with your own configuration file.  
 You can use the provided `template.json` as a starting point.
 
 ---
